@@ -1,11 +1,16 @@
 __pycache__
 build
 dist
-app.spec
+*.spec
 .env
 config.yml
 config.yml-*
 .directory
+
+# Generated UI and resource files
+tunnel.py
+tunnelconfig.py
+icons.py
 
 icons/robi*
 icons/binge*
