@@ -1,64 +1,103 @@
 # SSH Tunnel Manager
 
-A cross-platform, PyQt GUI to manage SSH tunnels
+A cross-platform GUI application for managing SSH tunnels, built with PySide6.
 
 ![SSH Tunnel Manager](.screenshot.png)
 
-## Installation (Standalone)
+## Features
 
-You can download the standalone executable from the [Release](https://github.com/mdminhazulhaque/ssh-tunnel-manager/releases) section.
+- Manage multiple SSH tunnels from a single interface
+- Start/stop tunnels with one click
+- Auto-open URLs in browser when tunnel starts
+- Custom icons per tunnel
+- Configuration backup on save (keeps last 10 backups)
+- Single instance enforcement
 
-## Installation (From Source)
+## Supported Platforms
 
-* Install dependencies: `pip install -r requirements.txt`
-* Create a config: `cp config.example.yml config.yml`
-* Run the app: `python3 app.py`
-* You can modify `sshtunnelmgr.desktop` and put in `~/.local/share/application` to create a app menu shortcut
+Pre-built binaries are available for:
+- Windows (x64)
+- Linux (x64)
+- macOS (Apple Silicon)
+
+## Installation
+
+### Standalone Executable
+
+Download the latest release from the [Releases](https://github.com/mdminhazulhaque/ssh-tunnel-manager/releases) page.
+
+### From Source
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Compile UI and resource files
+make
+
+# Create your configuration
+cp config.example.yml config.yml
+
+# Run the application
+python3 app.py
+```
+
+#### Linux Desktop Shortcut
+
+Edit `sshtunnelmgr.desktop` with your paths and copy it to create an application menu entry:
+
+```bash
+cp sshtunnelmgr.desktop ~/.local/share/applications/
+```
 
 ## Configuration
 
-A sample configuration file provide as `config.example.yml`. Here is one sample host entry.
+Tunnels are configured in `config.yml`. See `config.example.yml` for the format.
+
+### Example Entry
 
 ```yaml
 rabbitmq:
-  browser_open: http://127.0.0.1
-  local_port: 15672
-  proxy_host: demo-bastion
   remote_address: 10.10.10.30:15672
+  proxy_host: demo-bastion
+  local_port: 15672
+  browser_open: http://127.0.0.1
 ```
 
-This entry, when clicked `Start`, will run the following SSH command to establish the tunnel.
+This creates a tunnel equivalent to:
 
-```
+```bash
 ssh -L 127.0.0.1:15672:10.10.10.30:15672 demo-bastion
 ```
 
-The key `browser_open` is optional. If provided, it will open the provided URL in the system's default web browser. (The `local_port` will be appended to the URL automatically!)
+### Configuration Options
 
-The application saves the tunnel information into a `dict` and can `kill` it when the `Stop` button is clicked.
+| Key | Required | Description |
+|-----|----------|-------------|
+| `remote_address` | Yes | Target host:port to tunnel to |
+| `proxy_host` | Yes | SSH bastion/jump host |
+| `local_port` | Yes | Local port to bind |
+| `browser_open` | No | URL to open when tunnel starts (local_port is appended automatically) |
 
-## SSH bind on Privileged Ports
+## Custom Icons
 
-Binding on privileged ports will fail unless the user/program has administrative access.
+Place image files (PNG/JPG/BMP) in the `./icons/` directory with the same name as the tunnel identifier.
 
-For Linux/macOS, run the following command to allow SSH program to allow binding on privileged ports.
+For example, for a tunnel named `kubernetes`, place an icon at `./icons/kubernetes.png`.
+
+## SSH Binding on Privileged Ports
+
+Binding to ports below 1024 requires elevated privileges. On Linux/macOS, you can grant this capability to SSH:
 
 ```bash
 sudo setcap CAP_NET_BIND_SERVICE=+eip /usr/bin/ssh
 ```
 
-## Icons
-
-If you put image files (png/jpg/bmp) in `./icons/` with the same filename as the `name` field of tunnel configuration, it will appear as icon for that specific entry.
-
-For example, the tunnel identifier is `kubernetes`, so `./icons/kubernetes.png` will be set as the form's icon.
-
 ## Migration
 
-If you are migrating from older versions of this tool, please change all `local_address` in your config to `local_port` and make it a number.
+If migrating from older versions, change `local_address` to `local_port` in your config and ensure it's a number (not a string).
 
 ## TODO
 
-* Gracefully close SSH session instead of `kill`
-* Allow adding/editing/deleting hosts using the GUI
-* Store the config in `QSettings` instead of local yml file
+- Gracefully close SSH sessions instead of using `kill`
+- Add/edit/delete tunnels via the GUI
