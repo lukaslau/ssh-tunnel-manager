@@ -22,10 +22,6 @@ jobs:
             arch: x64
             name: linux64
             artifact: ssh-tunnel-manager-linux64
-          - os: macos-13
-            arch: x64
-            name: macos-intel
-            artifact: ssh-tunnel-manager-macos-intel
           - os: macos-14
             arch: arm64
             name: macos-arm64
@@ -50,11 +46,19 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Build UI files
+      - name: Build UI files (Unix)
+        if: runner.os != 'Windows'
         run: |
           pyside6-uic tunnel.ui -o tunnel.py
           pyside6-uic tunnelconfig.ui -o tunnelconfig.py
           pyside6-rcc icons.qrc -o icons.py
+
+      - name: Build UI files (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          python -m PySide6.scripts.pyside_tool uic tunnel.ui -o tunnel.py
+          python -m PySide6.scripts.pyside_tool uic tunnelconfig.ui -o tunnelconfig.py
+          python -m PySide6.scripts.pyside_tool rcc icons.qrc -o icons.py
 
       - name: Build executable (Windows)
         if: runner.os == 'Windows'
