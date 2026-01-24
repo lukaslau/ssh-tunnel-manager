@@ -64,19 +64,19 @@ jobs:
       - name: Build executable (Windows)
         if: runner.os == 'Windows'
         run: |
-          pyinstaller --onefile --windowed --name ssh-tunnel-manager --add-data "icons;icons" --add-data "config.example.yml;." app.py
+          pyinstaller --onefile --windowed --name ssh-tunnel-manager --hidden-import=icons --add-data "icons;icons" --add-data "config.example.yml;." app.py
 
       - name: Build executable (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libegl1
-          pyinstaller --onefile --name ssh-tunnel-manager --add-data "icons:icons" --add-data "config.example.yml:." app.py
+          pyinstaller --onefile --name ssh-tunnel-manager --hidden-import=icons --add-data "icons:icons" --add-data "config.example.yml:." app.py
 
       - name: Build executable (macOS)
         if: runner.os == 'macOS'
         run: |
-          pyinstaller --onefile --windowed --name ssh-tunnel-manager --add-data "icons:icons" --add-data "config.example.yml:." app.py
+          pyinstaller --onefile --windowed --name ssh-tunnel-manager --hidden-import=icons --add-data "icons:icons" --add-data "config.example.yml:." app.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
