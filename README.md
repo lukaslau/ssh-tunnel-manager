@@ -26,6 +26,26 @@ Pre-built binaries are available for:
 
 Download the latest release from the [Releases](https://github.com/mdminhazulhaque/ssh-tunnel-manager/releases) page.
 
+**Windows:** Double-click `ssh-tunnel-manager.exe` to run.
+
+**Linux:**
+```bash
+chmod +x ssh-tunnel-manager
+./ssh-tunnel-manager
+```
+
+**macOS:**
+```bash
+chmod +x ssh-tunnel-manager
+./ssh-tunnel-manager
+```
+
+On macOS, you may see a security warning saying the app "cannot be opened because the developer cannot be verified". To allow it:
+1. Open **System Settings → Privacy & Security**
+2. Scroll down and click **Open Anyway** next to the blocked app message
+
+> **Note:** The first launch may take a few seconds as the app extracts its bundled resources. This is normal for static binaries.
+
 ### From Source
 
 ```bash
