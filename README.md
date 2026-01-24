@@ -121,3 +121,7 @@ If migrating from older versions, change `local_address` to `local_port` in your
 
 - Gracefully close SSH sessions instead of using `kill`
 - Add/edit/delete tunnels via the GUI
+
+## Known Issues
+
+- Icons may not be visible in static builds
