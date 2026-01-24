@@ -5,9 +5,9 @@
 __author__ = "Md. Minhazul Haque"
 __license__ = "GPLv3"
 
-from PyQt5.QtWidgets import QWidget, QLabel, QLineEdit, QPushButton, QApplication, QGridLayout, QDialog, QMessageBox
-from PyQt5.QtCore import QProcess, Qt, QUrl, QSharedMemory
-from PyQt5.QtGui import QIcon, QDesktopServices, QPixmap
+from PySide6.QtWidgets import QWidget, QLabel, QLineEdit, QPushButton, QApplication, QGridLayout, QDialog, QMessageBox
+from PySide6.QtCore import QProcess, Qt, QUrl, QSharedMemory
+from PySide6.QtGui import QIcon, QDesktopServices, QPixmap
 
 from urllib.parse import urlparse
 from deepdiff import DeepDiff
@@ -18,8 +18,6 @@ import shutil
 import time
 import glob
 import os
-import requests
-
 from tunnel import Ui_Tunnel
 from tunnelconfig import Ui_TunnelConfig
 from vars import CONF_FILE, LANG, KEYS, ICONS, CMDS
@@ -50,8 +48,7 @@ class TunnelConfig(QDialog):
         
     def do_copy_ssh_command(self):
         cb = QApplication.clipboard()
-        cb.clear(mode=cb.Clipboard)
-        cb.setText(self.ui.ssh_command.text(), mode=cb.Clipboard)
+        cb.setText(self.ui.ssh_command.text())
         
     def as_dict(self):
         return {
@@ -135,7 +132,7 @@ class TunnelManager(QWidget):
         
         self.kill_button = QPushButton(LANG.KILL_SSH)
         self.kill_button.setIcon(QIcon(ICONS.KILL_SSH))
-        self.kill_button.setFocusPolicy(Qt.NoFocus)
+        self.kill_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.kill_button.clicked.connect(self.do_killall_ssh)
         
         self.grid.addWidget(self.kill_button, i+1, 0)
@@ -180,19 +177,19 @@ if __name__ == '__main__':
     
     if not sm.create(1):
         mb = QMessageBox()
-        mb.setIcon(QMessageBox.Information)
+        mb.setIcon(QMessageBox.Icon.Information)
         mb.setText(LANG.ALREADY_RUNNING)
         mb.setWindowTitle(LANG.OOPS)
-        mb.setStandardButtons(QMessageBox.Close)
+        mb.setStandardButtons(QMessageBox.StandardButton.Close)
         mb.show()
     elif not os.path.exists(CONF_FILE):
         mb = QMessageBox()
-        mb.setIcon(QMessageBox.Information)
+        mb.setIcon(QMessageBox.Icon.Information)
         mb.setText(LANG.CONF_NOT_FOUND)
         mb.setWindowTitle(LANG.OOPS)
-        mb.setStandardButtons(QMessageBox.Close)
+        mb.setStandardButtons(QMessageBox.StandardButton.Close)
         mb.show()
     else:        
         tm = TunnelManager()
             
-    sys.exit(app.exec_())
+    sys.exit(app.exec())

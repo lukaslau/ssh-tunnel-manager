@@ -1,87 +1,120 @@
-name: Build
+name: Build Executables
 
 on:
   push:
+    branches: [master]
     tags:
       - 'v*'
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
 
 jobs:
-  upload-release:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            arch: x86
+            name: win32
+            artifact: ssh-tunnel-manager-win32
+          - os: ubuntu-latest
+            arch: x64
+            name: linux64
+            artifact: ssh-tunnel-manager-linux64
+          - os: macos-13
+            arch: x64
+            name: macos-intel
+            artifact: ssh-tunnel-manager-macos-intel
+          - os: macos-14
+            arch: arm64
+            name: macos-arm64
+            artifact: ssh-tunnel-manager-macos-arm64
 
-    runs-on: ubuntu-18.04
-    needs:
-    - build-linux
-    - build-windows
+    runs-on: ${{ matrix.os }}
+    name: Build (${{ matrix.name }})
 
     steps:
-    - uses: actions/checkout@v1
-    - name: create release
-      id: create_release
-      uses: actions/create-release@master
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: false
-        prerelease: false   
-    - name: download artifacts
-      uses: actions/download-artifact@v1
-      with:
-        name: uploads
-    - name: upload linux
-      id: upload-linux
-      uses: actions/upload-release-asset@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./uploads/app-linux.bin
-        asset_name: ssh-tunnel-manager-linux-${{ github.ref_name }}
-        asset_content_type: application/x-executable
-    - name: upload windows
-      id: upload-windows
-      uses: actions/upload-release-asset@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./uploads/app-windows.exe
-        asset_name: ssh-tunnel-manager-windows-${{ github.ref_name }}.exe
-        asset_content_type: application/x-dosexec
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  build-linux:
-    runs-on: ubuntu-18.04
-    steps:
-    - uses: actions/checkout@v1
-    - uses: actions/setup-python@v4
-      with:
-        python-version: 3.8.10
-    - name: build executable
-      run: |
-        pip install -r requirements.txt
-        pip install pyinstaller
-        pyinstaller --onefile --noconsole --name app-linux.bin app.py
-    - name: upload artifact
-      uses: actions/upload-artifact@v1
-      with:
-        name: uploads
-        path: dist/app-linux.bin
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: ${{ matrix.arch }}
 
-  build-windows:
-    runs-on: windows-2019
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build UI files
+        run: |
+          pyside6-uic tunnel.ui -o tunnel.py
+          pyside6-uic tunnelconfig.ui -o tunnelconfig.py
+          pyside6-rcc icons.qrc -o icons.py
+
+      - name: Build executable (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          pyinstaller --onefile --windowed --name ssh-tunnel-manager --add-data "icons;icons" --add-data "config.example.yml;." app.py
+
+      - name: Build executable (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1
+          pyinstaller --onefile --name ssh-tunnel-manager --add-data "icons:icons" --add-data "config.example.yml:." app.py
+
+      - name: Build executable (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          pyinstaller --onefile --windowed --name ssh-tunnel-manager --add-data "icons:icons" --add-data "config.example.yml:." app.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            dist/ssh-tunnel-manager*
+          retention-days: 30
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
     steps:
-    - uses: actions/checkout@v1
-    - uses: actions/setup-python@v4
-      with:
-        python-version: 3.8.10
-    - name: build executable
-      run: |
-        pip install -r requirements.txt
-        pip install pyinstaller
-        pyinstaller --onefile --noconsole --name app-windows.exe app.py
-    - name: upload artifact
-      uses: actions/upload-artifact@v1
-      with:
-        name: uploads
-        path: dist/app-windows.exe
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release files
+        run: |
+          cd artifacts
+          for dir in */; do
+            name="${dir%/}"
+            cd "$name"
+            if [ -f "ssh-tunnel-manager" ]; then
+              chmod +x ssh-tunnel-manager
+              tar -czvf "../${name}.tar.gz" ssh-tunnel-manager
+            elif [ -f "ssh-tunnel-manager.exe" ]; then
+              zip "../${name}.zip" ssh-tunnel-manager.exe
+            elif [ -d "ssh-tunnel-manager.app" ]; then
+              tar -czvf "../${name}.tar.gz" ssh-tunnel-manager.app
+            fi
+            cd ..
+          done
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/*.tar.gz
+            artifacts/*.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
