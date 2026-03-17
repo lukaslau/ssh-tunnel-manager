@@ -6,6 +6,8 @@ class LANG:
     STOP = "Stop"
     ADD = "Add"
     CLOSE = "Close"
+    ADD_TUNNEL = "Add New Tunnel"
+    PORT_IN_USE = "Local port {} is already used by another tunnel."
     KILL_SSH = "Kill All SSH Processes"
     ALREADY_RUNNING = "SSH Tunnel Manager is already running"
     OOPS = "Oops!"

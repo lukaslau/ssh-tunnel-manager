@@ -81,14 +81,14 @@
     </widget>
    </item>
    <item row="2" column="1" colspan="2">
-    <widget class="QLineEdit" name="proxy_host">
+    <widget class="QComboBox" name="proxy_host">
      <property name="font">
       <font>
        <family>Monospace</family>
       </font>
      </property>
-     <property name="placeholderText">
-      <string>proxy-host</string>
+     <property name="editable">
+      <bool>true</bool>
      </property>
     </widget>
    </item>

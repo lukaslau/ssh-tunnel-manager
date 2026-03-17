@@ -5,7 +5,7 @@
 __author__ = "Md. Minhazul Haque"
 __license__ = "GPLv3"
 
-from PySide6.QtWidgets import QWidget, QLabel, QLineEdit, QPushButton, QApplication, QGridLayout, QDialog, QMessageBox
+from PySide6.QtWidgets import QWidget, QLabel, QLineEdit, QPushButton, QApplication, QGridLayout, QDialog, QMessageBox, QComboBox, QSpinBox, QDialogButtonBox, QHBoxLayout
 from PySide6.QtCore import QProcess, Qt, QUrl, QSharedMemory
 from PySide6.QtGui import QIcon, QDesktopServices, QPixmap
 
@@ -18,10 +18,24 @@ import shutil
 import time
 import glob
 import os
+import re
 from tunnel import Ui_Tunnel
 from tunnelconfig import Ui_TunnelConfig
 from vars import CONF_FILE, LANG, KEYS, ICONS, CMDS
 import icons
+
+def parse_ssh_config():
+    hosts = []
+    ssh_config_path = os.path.expanduser("~/.ssh/config")
+    if os.path.exists(ssh_config_path):
+        with open(ssh_config_path, "r") as f:
+            for line in f:
+                m = re.match(r'^\s*[Hh]ost\s+(.+)', line)
+                if m:
+                    for host in m.group(1).split():
+                        if '*' not in host and '?' not in host:
+                            hosts.append(host)
+    return hosts
 
 class TunnelConfig(QDialog):
     def __init__(self, parent, data):
@@ -31,19 +45,31 @@ class TunnelConfig(QDialog):
         self.ui.setupUi(self)
         
         self.ui.remote_address.setText(data.get(KEYS.REMOTE_ADDRESS))
-        self.ui.proxy_host.setText(data.get(KEYS.PROXY_HOST))
         self.ui.browser_open.setText(data.get(KEYS.BROWSER_OPEN))
         self.ui.local_port.setValue(data.get(KEYS.LOCAL_PORT))
-        
+
+        self.ui.proxy_host.addItems(parse_ssh_config())
+        self.ui.proxy_host.setCurrentText(data.get(KEYS.PROXY_HOST) or "")
+        if self.ui.proxy_host.lineEdit():
+            self.ui.proxy_host.lineEdit().setPlaceholderText("proxy-host")
+
         self.ui.remote_address.textChanged.connect(self.render_ssh_command)
-        self.ui.proxy_host.textChanged.connect(self.render_ssh_command)
+        self.ui.proxy_host.currentTextChanged.connect(self.render_ssh_command)
         self.ui.local_port.valueChanged.connect(self.render_ssh_command)
         self.ui.copy.clicked.connect(self.do_copy_ssh_command)
-        
+
+        self.used_ports = set()
+
         self.render_ssh_command()
-    
+
+    def accept(self):
+        if self.ui.local_port.value() in self.used_ports:
+            QMessageBox.warning(self, LANG.OOPS, LANG.PORT_IN_USE.format(self.ui.local_port.value()))
+            return
+        super().accept()
+
     def render_ssh_command(self):
-        ssh_command = F"ssh -L 127.0.0.1:{self.ui.local_port.value()}:{self.ui.remote_address.text()} {self.ui.proxy_host.text()}"
+        ssh_command = F"ssh -L 127.0.0.1:{self.ui.local_port.value()}:{self.ui.remote_address.text()} {self.ui.proxy_host.currentText()}"
         self.ui.ssh_command.setText(ssh_command)
         
     def do_copy_ssh_command(self):
@@ -53,9 +79,105 @@ class TunnelConfig(QDialog):
     def as_dict(self):
         return {
             KEYS.REMOTE_ADDRESS: self.ui.remote_address.text(),
-            KEYS.PROXY_HOST: self.ui.proxy_host.text(),
+            KEYS.PROXY_HOST: self.ui.proxy_host.currentText(),
             KEYS.BROWSER_OPEN: self.ui.browser_open.text(),
             KEYS.LOCAL_PORT: self.ui.local_port.value(),
+        }
+
+class AddTunnelDialog(QDialog):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.setWindowTitle(LANG.ADD_TUNNEL)
+        self.setModal(True)
+
+        layout = QGridLayout(self)
+        mono = "font-family: Monospace;"
+
+        layout.addWidget(QLabel("Name"), 0, 0)
+        self.name_field = QLineEdit()
+        self.name_field.setPlaceholderText("my-tunnel")
+        layout.addWidget(self.name_field, 0, 1, 1, 2)
+
+        layout.addWidget(QLabel("Local Port"), 1, 0)
+        port_row = QHBoxLayout()
+        self.local_port = QSpinBox()
+        self.local_port.setStyleSheet(mono)
+        self.local_port.setMaximum(65535)
+        self.local_port.setSingleStep(1000)
+        self.local_port.setValue(8443)
+        port_row.addWidget(self.local_port)
+        port_row.addStretch()
+        layout.addLayout(port_row, 1, 1, 1, 2)
+
+        layout.addWidget(QLabel("Remote Address"), 2, 0)
+        self.remote_address = QLineEdit()
+        self.remote_address.setStyleSheet(mono)
+        self.remote_address.setPlaceholderText("10.10.10.10:443")
+        layout.addWidget(self.remote_address, 2, 1, 1, 2)
+
+        layout.addWidget(QLabel("Proxy Host"), 3, 0)
+        self.proxy_host = QComboBox()
+        self.proxy_host.setStyleSheet(mono)
+        self.proxy_host.setEditable(True)
+        self.proxy_host.addItems(parse_ssh_config())
+        self.proxy_host.setCurrentIndex(-1)
+        if self.proxy_host.lineEdit():
+            self.proxy_host.lineEdit().setPlaceholderText("proxy-host")
+        layout.addWidget(self.proxy_host, 3, 1, 1, 2)
+
+        layout.addWidget(QLabel("Address to Open"), 4, 0)
+        self.browser_open = QLineEdit()
+        self.browser_open.setStyleSheet(mono)
+        self.browser_open.setPlaceholderText("https://127.0.0.1:8443")
+        layout.addWidget(self.browser_open, 4, 1, 1, 2)
+
+        layout.addWidget(QLabel("SSH Command"), 5, 0)
+        self.ssh_command = QLineEdit()
+        self.ssh_command.setStyleSheet(mono)
+        self.ssh_command.setReadOnly(True)
+        layout.addWidget(self.ssh_command, 5, 1)
+        copy_btn = QPushButton("Copy")
+        copy_btn.clicked.connect(self.do_copy_ssh_command)
+        layout.addWidget(copy_btn, 5, 2)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        btn_row.addWidget(button_box)
+        layout.addLayout(btn_row, 6, 0, 1, 3)
+
+        self.remote_address.textChanged.connect(self.render_ssh_command)
+        self.proxy_host.currentTextChanged.connect(self.render_ssh_command)
+        self.local_port.valueChanged.connect(self.render_ssh_command)
+
+        self.used_ports = set()
+
+        self.render_ssh_command()
+
+    def accept(self):
+        if self.local_port.value() in self.used_ports:
+            QMessageBox.warning(self, LANG.OOPS, LANG.PORT_IN_USE.format(self.local_port.value()))
+            return
+        super().accept()
+
+    def render_ssh_command(self):
+        ssh_command = F"ssh -L 127.0.0.1:{self.local_port.value()}:{self.remote_address.text()} {self.proxy_host.currentText()}"
+        self.ssh_command.setText(ssh_command)
+
+    def do_copy_ssh_command(self):
+        QApplication.clipboard().setText(self.ssh_command.text())
+
+    def get_name(self):
+        return self.name_field.text().strip()
+
+    def as_dict(self):
+        return {
+            KEYS.REMOTE_ADDRESS: self.remote_address.text(),
+            KEYS.PROXY_HOST: self.proxy_host.currentText(),
+            KEYS.BROWSER_OPEN: self.browser_open.text(),
+            KEYS.LOCAL_PORT: self.local_port.value(),
         }
 
 class Tunnel(QWidget):
@@ -129,13 +251,22 @@ class TunnelManager(QWidget):
             tunnel = Tunnel(name, self.data[name])
             self.tunnels.append(tunnel)
             self.grid.addWidget(tunnel, i, 0)
+            tunnel.ui.action_settings.clicked.disconnect()
+            tunnel.ui.action_settings.clicked.connect(
+                lambda checked=False, t=tunnel: self.show_tunnel_settings(t)
+            )
         
+        self.add_button = QPushButton(LANG.ADD_TUNNEL)
+        self.add_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.add_button.clicked.connect(self.do_add_tunnel)
+
         self.kill_button = QPushButton(LANG.KILL_SSH)
         self.kill_button.setIcon(QIcon(ICONS.KILL_SSH))
         self.kill_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.kill_button.clicked.connect(self.do_killall_ssh)
-        
-        self.grid.addWidget(self.kill_button, i+1, 0)
+
+        self.grid.addWidget(self.add_button, i+1, 0)
+        self.grid.addWidget(self.kill_button, i+2, 0)
         
         self.setLayout(self.grid)
         self.resize(10, 10)
@@ -143,6 +274,50 @@ class TunnelManager(QWidget):
         self.setWindowIcon(QIcon(ICONS.TUNNEL))
         self.show()
     
+    def _get_used_ports(self, exclude=None):
+        return {t.tunnelconfig.ui.local_port.value() for t in self.tunnels if t is not exclude}
+
+    def show_tunnel_settings(self, tunnel):
+        tunnel.tunnelconfig.used_ports = self._get_used_ports(exclude=tunnel)
+        tunnel.tunnelconfig.show()
+
+    def do_add_tunnel(self):
+        dialog = AddTunnelDialog(self)
+        dialog.used_ports = self._get_used_ports()
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        name = dialog.get_name()
+        if not name:
+            return
+
+        if name in self.data:
+            mb = QMessageBox(self)
+            mb.setIcon(QMessageBox.Icon.Warning)
+            mb.setText(F"Tunnel '{name}' already exists.")
+            mb.setWindowTitle(LANG.OOPS)
+            mb.exec()
+            return
+
+        data = dialog.as_dict()
+        self.data[name] = data
+
+        tunnel = Tunnel(name, data)
+        self.tunnels.append(tunnel)
+        tunnel.ui.action_settings.clicked.disconnect()
+        tunnel.ui.action_settings.clicked.connect(
+            lambda checked=False, t=tunnel: self.show_tunnel_settings(t)
+        )
+
+        row = len(self.tunnels) - 1
+        self.grid.removeWidget(self.add_button)
+        self.grid.removeWidget(self.kill_button)
+        self.grid.addWidget(tunnel, row, 0)
+        self.grid.addWidget(self.add_button, row + 1, 0)
+        self.grid.addWidget(self.kill_button, row + 2, 0)
+
+        self.resize(10, 10)
+
     def do_killall_ssh(self):
         for tunnel in self.tunnels:
             tunnel.stop_tunnel()

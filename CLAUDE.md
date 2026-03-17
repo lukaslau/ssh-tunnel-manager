@@ -54,7 +54,11 @@ The app reads tunnel configurations from `config.yml` (see `config.example.yml` 
 - `remote_address` - Target host:port
 - `proxy_host` - SSH bastion/jump host
 - `local_port` - Local port to bind
-- `browser_open` - Optional URL to open after tunnel starts
+- `browser_open` - Optional URL to open after tunnel starts (port is replaced with `local_port` at open time)
+
+Tunnel names (top-level YAML keys) are displayed in the UI and sorted alphabetically. A tunnel-specific icon is loaded from `icons/{name}.png` if it exists, otherwise falls back to the default tunnel icon.
+
+The SSH command executed per tunnel: `ssh -L 127.0.0.1:{local_port}:{remote_address} {proxy_host}`
 
 ### Single Instance
 
@@ -63,3 +67,7 @@ Uses `QSharedMemory` with a fixed UUID to prevent multiple instances.
 ### Config Persistence
 
 On close, if config changed (detected via `deepdiff`), saves to `config.yml` and creates timestamped backup (keeps last 10).
+
+### Releases
+
+Releases are built via GitHub Actions (`.github/workflows/build.yml`) and triggered by pushing a `v*` tag. Builds produce standalone executables for win64, linux64, and macos-arm64 using PyInstaller.
