@@ -10,13 +10,8 @@ from PySide6.QtCore import QProcess, Qt, QUrl, QSharedMemory
 from PySide6.QtGui import QIcon, QDesktopServices, QPixmap
 
 from urllib.parse import urlparse
-from deepdiff import DeepDiff
-
 import sys
 import yaml
-import shutil
-import time
-import glob
 import os
 import re
 from tunnel import Ui_Tunnel
@@ -289,19 +284,20 @@ class TunnelManager(QWidget):
         super().__init__()
 
         with open(CONF_FILE, "r") as fp:
-            self.data = yaml.load(fp, Loader=yaml.FullLoader)
+            data = yaml.load(fp, Loader=yaml.FullLoader)
 
         self.grid = QGridLayout(self)
         self.tunnels = []
 
-        for i, name in enumerate(sorted(self.data.keys())):
-            tunnel = Tunnel(name, self.data[name])
+        for i, name in enumerate(sorted(data.keys())):
+            tunnel = Tunnel(name, data[name])
             self.tunnels.append(tunnel)
             self.grid.addWidget(tunnel, i, 0)
             tunnel.ui.action_settings.clicked.disconnect()
             tunnel.ui.action_settings.clicked.connect(
                 lambda checked=False, t=tunnel: self.show_tunnel_settings(t)
             )
+            tunnel.tunnelconfig.accepted.connect(self.save_config)
 
         self.add_button = QPushButton(LANG.ADD_TUNNEL)
         self.add_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -348,6 +344,8 @@ class TunnelManager(QWidget):
         tunnel.ui.action_settings.clicked.connect(
             lambda checked=False, t=tunnel: self.show_tunnel_settings(t)
         )
+        tunnel.tunnelconfig.accepted.connect(self.save_config)
+        self.save_config()
 
         row = len(self.tunnels) - 1
         self.grid.removeWidget(self.add_button)
@@ -358,6 +356,11 @@ class TunnelManager(QWidget):
 
         self.resize(10, 10)
 
+    def save_config(self):
+        data = {tunnel.ui.name.text(): tunnel.tunnelconfig.as_dict() for tunnel in self.tunnels}
+        with open(CONF_FILE, "w") as fp:
+            yaml.dump(data, fp)
+
     def do_killall_ssh(self):
         for tunnel in self.tunnels:
             tunnel.stop_tunnel()
@@ -367,22 +370,6 @@ class TunnelManager(QWidget):
             os.system(CMDS.SSH_KILL_NIX)
 
     def closeEvent(self, event):
-        data = {}
-        for tunnel in self.tunnels:
-            name = tunnel.ui.name.text()
-            data[name] = tunnel.tunnelconfig.as_dict()
-
-        changed = DeepDiff(self.data, data, ignore_order=True)
-
-        if changed:
-            timestamp = int(time.time())
-            shutil.copy(CONF_FILE, F"{CONF_FILE}-{timestamp}")
-            with open(CONF_FILE, "w") as fp:
-                yaml.dump(data, fp)
-            backup_configs = glob.glob(F"{CONF_FILE}-*")
-            if len(backup_configs) > 10:
-                for config in sorted(backup_configs, reverse=True)[10:]:
-                    os.remove(config)
         event.accept()
 
 if __name__ == '__main__':

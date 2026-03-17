@@ -1,3 +1,2 @@
-deepdiff
 PySide6
 PyYAML
