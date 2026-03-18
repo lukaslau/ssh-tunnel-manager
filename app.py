@@ -76,7 +76,7 @@ class TunnelConfig(QDialog):
         return self.ui.name_field.text().strip()
 
     def render_ssh_command(self):
-        ssh_command = F"ssh -L 127.0.0.1:{self.ui.local_port.value()}:{self.ui.remote_address.text()} {self.ui.proxy_host.currentText()}"
+        ssh_command = F"ssh -o StrictHostKeyChecking=accept-new -L 127.0.0.1:{self.ui.local_port.value()}:{self.ui.remote_address.text()} {self.ui.proxy_host.currentText()}"
         self.ui.ssh_command.setText(ssh_command)
 
     def do_copy_ssh_command(self):
@@ -178,7 +178,7 @@ class AddTunnelDialog(QDialog):
         super().accept()
 
     def render_ssh_command(self):
-        ssh_command = F"ssh -L 127.0.0.1:{self.local_port.value()}:{self.remote_address.text()} {self.proxy_host.currentText()}"
+        ssh_command = F"ssh -o StrictHostKeyChecking=accept-new -L 127.0.0.1:{self.local_port.value()}:{self.remote_address.text()} {self.proxy_host.currentText()}"
         self.ssh_command.setText(ssh_command)
 
     def do_copy_ssh_command(self):
