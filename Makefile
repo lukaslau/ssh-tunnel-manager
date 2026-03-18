@@ -2,18 +2,15 @@
 
 all: ui resources
 
-ui: tunnel.py tunnelconfig.py
+ui: tunnelconfig.py
 
 resources: icons.py
 
-tunnel.py: tunnel.ui
-	pyside6-uic $< -o $@
-
 tunnelconfig.py: tunnelconfig.ui
-	pyside6-uic $< -o $@
+	pyside6-uic -g python $< -o $@
 
 icons.py: icons.qrc
-	pyside6-rcc $< -o $@
+	pyside6-rcc -g python $< -o $@
 
 clean:
-	rm -f tunnel.py tunnelconfig.py icons.py
+	rm -f tunnelconfig.py icons.py

@@ -28,6 +28,8 @@ class ICONS:
     START = ":icons/start.png"
     STOP = ":icons/stop.png"
     KILL_SSH = ":icons/kill.png"
+    SETTINGS = ":icons/settings.png"
+    TRASH = ":icons/trash.png"
 
 class CMDS:    
     SSH = "ssh"
