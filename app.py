@@ -6,7 +6,7 @@ __author__ = "Md. Minhazul Haque"
 __license__ = "GPLv3"
 
 from PySide6.QtWidgets import QWidget, QLabel, QLineEdit, QPushButton, QApplication, QGridLayout, QDialog, QMessageBox, QComboBox, QSpinBox, QDialogButtonBox, QHBoxLayout
-from PySide6.QtCore import QProcess, Qt, QUrl, QSharedMemory
+from PySide6.QtCore import QProcess, Qt, QUrl, QSharedMemory, Signal
 from PySide6.QtGui import QIcon, QDesktopServices, QPixmap
 
 from urllib.parse import urlparse
@@ -196,6 +196,8 @@ class AddTunnelDialog(QDialog):
         }
 
 class Tunnel(QWidget):
+    deleted = Signal()
+
     def __init__(self, name, data):
         super(Tunnel, self).__init__()
 
@@ -217,6 +219,7 @@ class Tunnel(QWidget):
         self.ui.action_tunnel.clicked.connect(self.do_tunnel)
         self.ui.action_settings.clicked.connect(self.tunnelconfig.show)
         self.ui.action_open.clicked.connect(self.do_open_browser)
+        self.ui.action_delete.clicked.connect(self.deleted)
 
         self.process = None
         self._stopping = False
@@ -269,7 +272,7 @@ class Tunnel(QWidget):
         self._cleanup_process()
 
     def _on_process_finished(self, exit_code, exit_status):
-        if not self._stopping and exit_code != 0:
+        if not self._stopping:
             self._stopping = True
             name = self.ui.name.text()
             QMessageBox.warning(self, LANG.OOPS, LANG.SSH_EXITED.format(name, exit_code))
@@ -298,6 +301,7 @@ class TunnelManager(QWidget):
                 lambda checked=False, t=tunnel: self.show_tunnel_settings(t)
             )
             tunnel.tunnelconfig.accepted.connect(self.save_config)
+            tunnel.deleted.connect(lambda t=tunnel: self.do_delete_tunnel(t))
 
         self.add_button = QPushButton(LANG.ADD_TUNNEL)
         self.add_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -323,6 +327,14 @@ class TunnelManager(QWidget):
     def _get_used_names(self, exclude=None):
         return {t.ui.name.text() for t in self.tunnels if t is not exclude}
 
+    def do_delete_tunnel(self, tunnel):
+        tunnel.stop_tunnel()
+        self.tunnels.remove(tunnel)
+        self.grid.removeWidget(tunnel)
+        tunnel.deleteLater()
+        self.save_config()
+        self.adjustSize()
+
     def show_tunnel_settings(self, tunnel):
         tunnel.tunnelconfig.used_ports = self._get_used_ports(exclude=tunnel)
         tunnel.tunnelconfig.used_names = self._get_used_names(exclude=tunnel)
@@ -345,6 +357,7 @@ class TunnelManager(QWidget):
             lambda checked=False, t=tunnel: self.show_tunnel_settings(t)
         )
         tunnel.tunnelconfig.accepted.connect(self.save_config)
+        tunnel.deleted.connect(lambda t=tunnel: self.do_delete_tunnel(t))
         self.save_config()
 
         row = len(self.tunnels) - 1
