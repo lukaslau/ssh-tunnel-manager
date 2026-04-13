@@ -465,7 +465,7 @@ class TunnelManager(QWidget):
         self._setup_tray()
 
         with open(CONF_FILE, "r") as fp:
-            data = yaml.load(fp, Loader=yaml.FullLoader)
+            data = yaml.load(fp, Loader=yaml.FullLoader) or {}
 
         self.tunnels = []
         self._build_ui()
@@ -686,14 +686,9 @@ if __name__ == '__main__':
         mb.setWindowTitle(LANG.OOPS)
         mb.setStandardButtons(QMessageBox.StandardButton.Close)
         mb.show()
-    elif not os.path.exists(CONF_FILE):
-        mb = QMessageBox()
-        mb.setIcon(QMessageBox.Icon.Information)
-        mb.setText(LANG.CONF_NOT_FOUND)
-        mb.setWindowTitle(LANG.OOPS)
-        mb.setStandardButtons(QMessageBox.StandardButton.Close)
-        mb.show()
     else:
+        if not os.path.exists(CONF_FILE):
+            open(CONF_FILE, "w").close()
         tm = TunnelManager()
 
     sys.exit(app.exec())
